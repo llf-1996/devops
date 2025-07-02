@@ -9,6 +9,7 @@ services:
     volumes:
       - /data/jenkins/jenkins_home:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
+      - /root/.ssh:/root/.ssh
     environment:
       - JAVA_OPTS=-Djava.awt.headless=true -Xmx2g -Xms512m
     privileged: true
