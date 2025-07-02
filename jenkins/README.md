@@ -35,7 +35,7 @@ cd devops/jenkins/
 docker-compose up -d
 ```
 4. 访问 Jenkins 控制台：
-   - 地址：`http://<你的主机IP>:8080`（默认端口 8080）
+   - 地址：`http://<你的主机IP>:10080`（默认端口 8080）
    - 初始管理员密码：通过 `docker logs jenkins` 查看容器日志获取
 
 ## 配置说明
