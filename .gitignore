@@ -1,0 +1,2 @@
+# 保留根目录的.gitignore文件（避免被自身规则忽略）
+!.gitignore
