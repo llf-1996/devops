@@ -12,15 +12,15 @@ services:
       - /root/.ssh:/root/.ssh
       - /www/wwwroot:/dist
     environment:
-      - JAVA_OPTS=-Djava.awt.headless=true -Xmx2g -Xms512m
+      - JAVA_OPTS=-Djava.awt.headless=true -Xmx4g -Xms1g
     privileged: true
     user: root
     deploy:
       resources:
         limits:
-          memory: 2G
+          memory: 4G
         reservations:
-          memory: 512m
+          memory: 1G
     logging:
       driver: json-file
       options:
