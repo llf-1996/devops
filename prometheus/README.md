@@ -40,5 +40,31 @@ docker-compose up -d
 - 配置文件目录：`/data/prometheus`（需包含prometheus.yml等配置文件）
 - 数据存储目录：`/data/prometheus-data`
 
+## 配置文件准备
+
+Prometheus 启动前，**必须确保主机 `/data/prometheus/config` 目录下存在 `prometheus.yml` 配置文件**，否则容器会启动失败。
+
+### 示例创建方法（Linux/WSL）：
+```bash
+mkdir -p /data/prometheus/config
+vim /data/prometheus/config/prometheus.yml
+```
+
+### 最简单的 prometheus.yml 示例内容：
+```yaml
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+```
+
+保存后，重启 Prometheus 容器：
+```bash
+docker-compose restart
+```
+
 ## 注意事项
   - 生产环境建议根据实际需求重新创建数据目录并挂载数据卷，避免容器删除后数据丢失 
