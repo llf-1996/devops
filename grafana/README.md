@@ -20,6 +20,7 @@ grafana/
 ```bash
 mkdir -p /data/grafana/data
 mkdir -p /data/grafana/provisioning
+chmod 777 -R /data/grafana
 ```
 2. 克隆/下载本项目到本地：
 ```bash
@@ -31,7 +32,7 @@ cd devops/grafana/
 docker-compose up -d
 ```
 4. 访问 Grafana 控制台：
-   - 地址：`http://<你的主机IP>:13000`（默认端口 3000）
+   - 地址：`http://<你的主机IP>:11095`（默认端口 3000）
    - 默认管理员账号：admin
    - 默认管理员密码：admin（可在 docker-compose.yaml 中修改）
 

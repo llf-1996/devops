@@ -34,11 +34,11 @@ cd devops/prometheus/
 docker-compose up -d
 ```
 4. 访问 Prometheus 控制台：
-   - 地址：`http://<你的主机IP>:19090`（默认端口 9090）
+   - 地址：`http://<你的主机IP>:11090`（默认端口 9090）
 
 ## 配置说明
-- 配置文件目录：`/data/prometheus`（需包含prometheus.yml等配置文件）
-- 数据存储目录：`/data/prometheus-data`
+- 配置文件目录：`/data/prometheus/config`（需包含prometheus.yml等配置文件）
+- 数据存储目录：`/data/prometheus/data`
 
 ## 配置文件准备
 
@@ -53,12 +53,15 @@ vim /data/prometheus/config/prometheus.yml
 ### 最简单的 prometheus.yml 示例内容：
 ```yaml
 global:
-  scrape_interval: 15s
+  scrape_interval: 60s
 
 scrape_configs:
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
 ```
 
 保存后，重启 Prometheus 容器：
@@ -67,4 +70,4 @@ docker-compose restart
 ```
 
 ## 注意事项
-  - 生产环境建议根据实际需求重新创建数据目录并挂载数据卷，避免容器删除后数据丢失 
+  - 生产环境建议根据实际需求重新创建数据目录并挂载数据卷，避免容器删除后数据丢失
