@@ -1,0 +1,9 @@
+version: '3.8'
+
+services:
+  rrweb-api:
+    build: .
+    ports:
+      - "11070:8000"
+    volumes:
+      - ./:/data/rrweb

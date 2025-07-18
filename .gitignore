@@ -1,2 +1,47 @@
 # 保留根目录的.gitignore文件（避免被自身规则忽略）
 !.gitignore
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.so
+
+# 环境/依赖
+.env
+.venv/
+venv/
+ENV/
+env.bak/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# 数据库/日志
+*.db
+*.sqlite3
+*.log
+
+# Alembic
+alembic/versions/
+
+# Docker
+*.pid
+docker-compose.override.yml
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 单元测试
+htmlcov/
+.coverage
+.tox/
+.pytest_cache/
+
+# 其他
+*.bak
+*.tmp
