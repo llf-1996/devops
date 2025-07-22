@@ -37,5 +37,8 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 # 容器启动
 ```bash
+# 首次启动
 docker compose up -d
+# 后续更新启动
+docker compose restart
 ```
