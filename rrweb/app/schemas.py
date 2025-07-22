@@ -13,12 +13,40 @@ class EventBase(BaseModel):
     request_id: Optional[str] = None
 
 
-class EventCreate(EventBase):
+class EventCreate(BaseModel):
+    company_id: Optional[int] = None
+    company_name: Optional[str] = None
+    user_id: Optional[int] = None
+    user_name: Optional[str] = None
+    events: List[Any]
+    payload: Optional[dict] = dict()
+    request_id: Optional[str] = None
     request_at: datetime
 
 
-class EventOut(EventBase):
+class EventListOut(BaseModel):
     id: int
+    company_id: Optional[int] = None
+    company_name: Optional[str] = None
+    user_id: Optional[int] = None
+    user_name: Optional[str] = None
+    payload: Optional[dict] = dict()
+    request_id: Optional[str] = None
+    request_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class EventDetailOut(BaseModel):
+    id: int
+    company_id: Optional[int] = None
+    company_name: Optional[str] = None
+    user_id: Optional[int] = None
+    user_name: Optional[str] = None
+    events: List[Any]
+    payload: Optional[dict] = dict()
+    request_id: Optional[str] = None
     request_at: datetime
 
     class Config:

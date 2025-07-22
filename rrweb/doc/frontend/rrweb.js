@@ -7,7 +7,19 @@ import { api_rrweb_report } from "@/api/rrweb_api.js";
 
 let request_id = sessionStorage.getItem("rrweb_request_id");
 let order_plan_id, events = [], rrwebStopFn = null, timer = null, userInfo = {};
-// let startTime = 0;
+
+
+function _getNow() {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
 
 // 录制开始
 function rrWebStart(current_order_plan_id) {
@@ -17,7 +29,6 @@ function rrWebStart(current_order_plan_id) {
     return;
   }
   order_plan_id = current_order_plan_id;
-  // startTime = Date.now();
   if (rrwebStopFn) {
     rrWebStop();
   }
@@ -86,6 +97,7 @@ function save() {
     ...userInfo,
     events,
     request_id: request_id,
+    request_at: _getNow(), // 格式：2025-04-05T12:34:56.789Z
     payload: {
       order_plan_id,
     },
