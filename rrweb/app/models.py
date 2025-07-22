@@ -16,3 +16,4 @@ class Event(Base):
     events = Column(MySQLJSON, nullable=False, comment="事件内容")
     payload = Column(MySQLJSON, nullable=True, comment="附加数据")
     request_id = Column(String(50), nullable=False, comment="请求ID，前端生成并保存至localstorage")
+    request_at = Column(DateTime, nullable=True, index=True, comment="请求时间")

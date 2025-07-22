@@ -9,8 +9,11 @@ from sqlalchemy import pool
 from alembic import context
 
 def include_object(object, name, type_, reflected, compare_to):
-    # 只迁移 events 表
-    return name in ["events"] or type_ == "schema"
+    # print("include_object: ", object, name, type_, reflected, compare_to)
+    if type_ == "table":
+        # 只迁移 events 表
+        return name in ["events"]
+    return True
 
 
 # this is the Alembic Config object, which provides
