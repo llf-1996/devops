@@ -1,28 +1,39 @@
 services:
   jenkins:
-    image: jenkins/jenkins:lts
+    # image: jenkins/jenkins:lts
+    image: docker.cnb.cool/jinriyaojia_huigu/yaocai/devops/jenkins:lts
     container_name: jenkins
     restart: unless-stopped
     ports:
       - "11080:8080"
       - "11081:50000"
     volumes:
-      - /data/jenkins/jenkins_home:/var/jenkins_home
+      - jenkins_home:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
       # - /root/.ssh:/root/.ssh
       - /www/wwwroot:/dist
     environment:
-      - JAVA_OPTS=-Djava.awt.headless=true -Xmx4g -Xms1g
+      - JAVA_OPTS=-Djava.awt.headless=true -Xmx4g -Xms1g -XX:+UseG1GC -XX:+UseContainerSupport
     privileged: true
     user: root
     deploy:
       resources:
         limits:
           memory: 4G
+          cpus: '2.0'
         reservations:
           memory: 1G
+          cpus: '0.5'
     logging:
       driver: json-file
       options:
         max-size: "30m"
         max-file: "10"
+
+volumes:
+  jenkins_home:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /data/jenkins/jenkins_home
