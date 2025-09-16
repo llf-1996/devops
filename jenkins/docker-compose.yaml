@@ -14,6 +14,7 @@ services:
       - /www/wwwroot:/dist
     environment:
       - JAVA_OPTS=-Djava.awt.headless=true -Xmx4g -Xms2g -XX:+UseG1GC -XX:+UseContainerSupport
+      - TZ=Asia/Shanghai
     privileged: true
     user: root
     deploy:
