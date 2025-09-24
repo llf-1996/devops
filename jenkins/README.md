@@ -44,3 +44,13 @@ docker-compose up -d
 
 ## 注意事项
   - 生产环境建议根据实际需求重新创建 `jenkins_home` 目录并挂载数据卷，避免容器删除后数据丢失
+
+## 部署示例
+### Python
+![Python Django后端项目部署配置](doc/Python_Django.jpg "配置示例")
+
+### Vue
+![Vue项目部署配置](doc/Vue.jpg)
+
+### Java
+![Java Spring Boot后端项目部署配置](doc/Java_SpringBoot.jpg)
