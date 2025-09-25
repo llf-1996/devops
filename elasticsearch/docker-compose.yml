@@ -1,0 +1,94 @@
+volumes:
+  es-config:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./runtime/es/config
+      o: bind
+  es-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./runtime/es/data
+      o: bind
+  es-plugins:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./runtime/es/plugins
+      o: bind
+
+services:
+  elasticsearch:
+    container_name: es01
+    # image: elasticsearch:8.12.2
+    image: docker.cnb.cool/jinriyaojia_huigu/yaocai/devops/elasticsearch:8.12.2
+    restart: unless-stopped
+    user: "1000" # 使用容器内 Elasticsearch 用户的 UID:GID
+    environment:
+      - "ES_JAVA_OPTS=-Xms2048m -Xmx4096m"
+      - "TZ=Asia/Shanghai"
+      - "discovery.type=single-node"
+      - "ELASTIC_PASSWORD=123456"
+    ports:
+      - "19200:9200"  # Elasticsearch 默认的 HTTP 端口，用于接收 REST API 请求，比如搜索、索引文档等操作
+      # - "19300:9300"  # Elasticsearch 默认的 Transport 端口，用于节点间通信和 Java 客户端的传输层连接
+    volumes:
+      # - ./runtime/es/config:/usr/share/elasticsearch/config
+      # - ./runtime/es/data:/usr/share/elasticsearch/data
+      # - ./runtime/es/plugins:/usr/share/elasticsearch/plugins
+      - es-config:/usr/share/elasticsearch/config
+      - es-data:/usr/share/elasticsearch/data
+      - es-plugins:/usr/share/elasticsearch/plugins
+    networks:
+      - elastic_net
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 2G
+          cpus: '1.0'
+    logging:
+      driver: json-file
+      options:
+        max-size: "30m"
+        max-file: "10"
+  kibana:
+    container_name: kibana01
+    # image: kibana:8.12.2
+    image: docker.cnb.cool/jinriyaojia_huigu/yaocai/devops/kibana:8.12.2
+    restart: unless-stopped
+    environment:
+      - "TZ=Asia/Shanghai"
+      - "I18N_LOCALE=zh-CN"
+      - "ELASTICSEARCH_HOSTS=http://elasticsearch:9200"
+      - "ELASTICSEARCH_USERNAME=elastic-kibana"
+      - "ELASTICSEARCH_PASSWORD=123456"
+      # 服务账户令牌
+      # - "ELASTICSEARCH_SERVICEACCOUNTTOKEN=AAEAAWVsYXN0aWMva2liYW5hL2tpYmFuYS10b2tlbjpWckFhYWl4U1EyNmNRMGR4OGtXYmVR"
+    ports:
+      - "5601:5601"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '1.0'
+    logging:
+      driver: json-file
+      options:
+        max-size: "30m"
+        max-file: "10"
+    networks:
+      - elastic_net
+    depends_on:
+      - elasticsearch
+
+# 网络配置
+networks:
+  elastic_net:
+    driver: bridge
