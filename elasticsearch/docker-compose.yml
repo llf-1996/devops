@@ -1,83 +1,71 @@
-volumes:
-  es-config:
-    driver: local
-    driver_opts:
-      type: none
-      device: ./runtime/es/config
-      o: bind
-  es-data:
-    driver: local
-    driver_opts:
-      type: none
-      device: ./runtime/es/data
-      o: bind
-  es-plugins:
-    driver: local
-    driver_opts:
-      type: none
-      device: ./runtime/es/plugins
-      o: bind
-
 services:
   elasticsearch:
-    container_name: es01
+    container_name: elasticsearch
     # image: elasticsearch:8.12.2
     image: docker.cnb.cool/jinriyaojia_huigu/yaocai/devops/elasticsearch:8.12.2
     restart: unless-stopped
-    user: "1000" # 使用容器内 Elasticsearch 用户的 UID:GID
+    user: 1000:1000
     environment:
-      - "ES_JAVA_OPTS=-Xms2048m -Xmx4096m"
+      - "ES_JAVA_OPTS=-Xms512m -Xmx1g -XX:+UseG1GC -XX:G1ReservePercent=25 -XX:InitiatingHeapOccupancyPercent=30"
       - "TZ=Asia/Shanghai"
+      # 禁用 HTTPS，启用 HTTP
+      - "xpack.security.http.ssl.enabled=false"
+      - "xpack.security.enabled=true"  # 保持安全启用，但使用 HTTP
       - "discovery.type=single-node"
-      - "ELASTIC_PASSWORD=123456"
+      - "ELASTIC_PASSWORD=dAUl36wBVN"
     ports:
       - "19200:9200"  # Elasticsearch 默认的 HTTP 端口，用于接收 REST API 请求，比如搜索、索引文档等操作
       # - "19300:9300"  # Elasticsearch 默认的 Transport 端口，用于节点间通信和 Java 客户端的传输层连接
     volumes:
-      # - ./runtime/es/config:/usr/share/elasticsearch/config
-      # - ./runtime/es/data:/usr/share/elasticsearch/data
-      # - ./runtime/es/plugins:/usr/share/elasticsearch/plugins
-      - es-config:/usr/share/elasticsearch/config
-      - es-data:/usr/share/elasticsearch/data
-      - es-plugins:/usr/share/elasticsearch/plugins
+       - ./runtime/es/config:/usr/share/elasticsearch/config
+       - ./runtime/es/data:/usr/share/elasticsearch/data
+       - ./runtime/es/plugins:/usr/share/elasticsearch/plugins
     networks:
       - elastic_net
     deploy:
       resources:
         limits:
-          memory: 4G
-          cpus: '2.0'
-        reservations:
           memory: 2G
           cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
     logging:
       driver: json-file
       options:
         max-size: "30m"
         max-file: "10"
   kibana:
-    container_name: kibana01
+    container_name: kibana
     # image: kibana:8.12.2
     image: docker.cnb.cool/jinriyaojia_huigu/yaocai/devops/kibana:8.12.2
     restart: unless-stopped
     environment:
       - "TZ=Asia/Shanghai"
       - "I18N_LOCALE=zh-CN"
+      - "SERVER_HOST=0.0.0.0"
+      - "SERVER_NAME=kibana"
+      - "NODE_OPTIONS=--max-old-space-size=800"  # 设置 Node.js 最大堆内存为 800MB
       - "ELASTICSEARCH_HOSTS=http://elasticsearch:9200"
+      - "ELASTICSEARCH_SSL_VERIFICATIONMODE=none"  # 开发环境禁用证书验证
       - "ELASTICSEARCH_USERNAME=elastic-kibana"
       - "ELASTICSEARCH_PASSWORD=123456"
       # 服务账户令牌
       # - "ELASTICSEARCH_SERVICEACCOUNTTOKEN=AAEAAWVsYXN0aWMva2liYW5hL2tpYmFuYS10b2tlbjpWckFhYWl4U1EyNmNRMGR4OGtXYmVR"
+      # 禁用不需要的功能
+      - "XPACK_SECURITY_LOGIN_HELP_ENABLED=false"
+      - "XPACK_SECURITY_PASSWORD_RESET_ENABLED=false"
+      - "XPACK_SECURITY_SESSION_IDLE_TIMEOUT=1h"
     ports:
       - "5601:5601"
     deploy:
       resources:
         limits:
           memory: 1G
-          cpus: '1.0'
+          cpus: '0.5'
         reservations:
-          memory: 1G
-          cpus: '1.0'
+          memory: 512M
+          cpus: '0.25'
     logging:
       driver: json-file
       options:
