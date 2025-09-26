@@ -12,7 +12,7 @@ services:
       - "xpack.security.http.ssl.enabled=false"
       - "xpack.security.enabled=true"  # 保持安全启用，但使用 HTTP
       - "discovery.type=single-node"
-      - "ELASTIC_PASSWORD=dAUl36wBVN"
+      - "ELASTIC_PASSWORD=${ELASTIC_PASSWORD}"
     ports:
       - "19200:9200"  # Elasticsearch 默认的 HTTP 端口，用于接收 REST API 请求，比如搜索、索引文档等操作
       # - "19300:9300"  # Elasticsearch 默认的 Transport 端口，用于节点间通信和 Java 客户端的传输层连接
@@ -43,19 +43,20 @@ services:
     environment:
       - "TZ=Asia/Shanghai"
       - "I18N_LOCALE=zh-CN"
-      - "SERVER_HOST=0.0.0.0"
-      - "SERVER_NAME=kibana"
-      - "NODE_OPTIONS=--max-old-space-size=800"  # 设置 Node.js 最大堆内存为 800MB
-      - "ELASTICSEARCH_HOSTS=http://elasticsearch:9200"
       - "ELASTICSEARCH_SSL_VERIFICATIONMODE=none"  # 开发环境禁用证书验证
-      - "ELASTICSEARCH_USERNAME=elastic-kibana"
-      - "ELASTICSEARCH_PASSWORD=123456"
-      # 服务账户令牌
-      # - "ELASTICSEARCH_SERVICEACCOUNTTOKEN=AAEAAWVsYXN0aWMva2liYW5hL2tpYmFuYS10b2tlbjpWckFhYWl4U1EyNmNRMGR4OGtXYmVR"
       # 禁用不需要的功能
       - "XPACK_SECURITY_LOGIN_HELP_ENABLED=false"
       - "XPACK_SECURITY_PASSWORD_RESET_ENABLED=false"
       - "XPACK_SECURITY_SESSION_IDLE_TIMEOUT=1h"
+      - "SERVER_HOST=0.0.0.0"
+      - "SERVER_NAME=kibana"
+      - "NODE_OPTIONS=--max-old-space-size=800"  # 设置 Node.js 最大堆内存为 800MB
+      - "ELASTICSEARCH_HOSTS=http://elasticsearch:9200"
+      # 1.1账号验证
+      - "ELASTICSEARCH_USERNAME=kibana_system"
+      - "ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD}"
+      # 1.2服务账户令牌
+      # - "ELASTICSEARCH_SERVICEACCOUNTTOKEN=AAEAAWVsYXN0aWMva2liYW5hL2tpYmFuYS10b2tlbjpWckFhYWl4U1EyNmNRMGR4OGtXYmVR"
     ports:
       - "5601:5601"
     deploy:
