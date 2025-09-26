@@ -89,6 +89,11 @@ SERVICE_TOKEN elastic/kibana/kibana-token = AAEAAWVsYXN0aWMva2liYW5hL2tpYmFuYS10
 PS D:\workspace\devops\elasticsearch>
 ```
 
+### 配置完成后重启es
+```bash
+docker compost researt elasticsearch
+```
+
 ## 访问服务
 ### ES
 ```bash
