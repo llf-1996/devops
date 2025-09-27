@@ -2,7 +2,7 @@
 
 ## 准备基础配置文件
 ```bash
-mkdir -p runtime/es/plugins && mkdir -p runtime/es/data && mkdir -p runtime/es/config
+mkdir -p runtime/es/plugins && mkdir -p runtime/es/data && mkdir -p runtime/es/config && mkdir -p runtime/es/logs
 # 修改文件权限，解决配置文件复制和IK中文分词插件安装权限问题
 chown -R 1000:1000 runtime
 docker run --rm -v ./runtime/es/config:/temp-config docker.cnb.cool/jinriyaojia_huigu/yaocai/devops/elasticsearch:8.12.2 cp -r /usr/share/elasticsearch/config/. /temp-config/
