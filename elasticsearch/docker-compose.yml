@@ -7,20 +7,20 @@ services:
     user: 1000:1000
     environment:
       - "ES_JAVA_OPTS=-Xms1g -Xmx1g -XX:+UseG1GC"
-      - "TZ=Asia/Shanghai"
       # 禁用 HTTPS，启用 HTTP
       - "xpack.security.http.ssl.enabled=false"
       - "xpack.security.enabled=true"  # 保持安全启用，但使用 HTTP
       - "discovery.type=single-node"
+      - "ingest.geoip.downloader.enabled=false"
       - "ELASTIC_PASSWORD=${ELASTIC_PASSWORD}"
     ports:
       - "19200:9200"  # Elasticsearch 默认的 HTTP 端口，用于接收 REST API 请求，比如搜索、索引文档等操作
       # - "19300:9300"  # Elasticsearch 默认的 Transport 端口，用于节点间通信和 Java 客户端的传输层连接
     volumes:
-       - ./runtime/es/config:/usr/share/elasticsearch/config
-       - ./runtime/es/data:/usr/share/elasticsearch/data
-       - ./runtime/es/plugins:/usr/share/elasticsearch/plugins
-       - ./runtime/es/logs:/usr/share/elasticsearch/logs  # 挂载日志目录
+      - ./runtime/es/config:/usr/share/elasticsearch/config
+      - ./runtime/es/data:/usr/share/elasticsearch/data
+      - ./runtime/es/plugins:/usr/share/elasticsearch/plugins
+      - ./runtime/es/logs:/usr/share/elasticsearch/logs  # 挂载日志目录
     networks:
       - elastic_net
     ulimits:
