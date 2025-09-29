@@ -1,1 +1,4 @@
-runtime/
+runtime/es/config
+runtime/es/plugins
+runtime/es/data
+runtime/es/logs

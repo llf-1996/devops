@@ -6,12 +6,13 @@ services:
     restart: unless-stopped
     user: 1000:1000
     environment:
-      - "ES_JAVA_OPTS=-Xms1g -Xmx1g -XX:+UseG1GC"
-      # 禁用 HTTPS，启用 HTTP
-      - "xpack.security.http.ssl.enabled=false"
-      - "xpack.security.enabled=true"  # 保持安全启用，但使用 HTTP
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+      # - "bootstrap.memory_lock=true"  # 内存锁定配置
       - "discovery.type=single-node"
       - "ingest.geoip.downloader.enabled=false"
+      - "xpack.security.enabled=true"
+      - "xpack.security.http.ssl.enabled=false"  # HTTP 禁用 SSL
+      - "xpack.security.transport.ssl.enabled=false"  # 启用传输层 SSL
       - "ELASTIC_PASSWORD=${ELASTIC_PASSWORD}"
     ports:
       - "19200:9200"  # Elasticsearch 默认的 HTTP 端口，用于接收 REST API 请求，比如搜索、索引文档等操作
@@ -52,7 +53,8 @@ services:
     image: docker.cnb.cool/jinriyaojia_huigu/yaocai/devops/kibana:8.12.2
     restart: unless-stopped
     environment:
-      - "TZ=Asia/Shanghai"
+      # - "TZ=Asia/Shanghai"
+      - "TZ=UTC"
       - "I18N_LOCALE=zh-CN"
       - "ELASTICSEARCH_SSL_VERIFICATIONMODE=none"  # 开发环境禁用证书验证
       # 禁用不需要的功能

@@ -6,8 +6,10 @@ mkdir -p runtime/es/plugins && mkdir -p runtime/es/data && mkdir -p runtime/es/c
 # 修改文件权限，解决配置文件复制和IK中文分词插件安装权限问题
 chown -R 1000:1000 runtime
 docker run --rm -v ./runtime/es/config:/temp-config docker.cnb.cool/jinriyaojia_huigu/yaocai/devops/elasticsearch:8.12.2 cp -r /usr/share/elasticsearch/config/. /temp-config/
+# 修改gc为SerialGC，vim runtime/es/config/jvm.options
 # 创建同义词文件
-mkdir -p runtime/es/config/certs && touch runtime/es/config/certs/synonym.txt
+cp -r runtime/es/synonyms runtime/es/config/
+chown -R 1000:1000 runtime
 ```
 
 ## 启动
@@ -91,7 +93,7 @@ PS D:\workspace\devops\elasticsearch>
 
 ### 配置完成后重启es
 ```bash
-docker compost researt elasticsearch
+docker compose restart elasticsearch
 ```
 
 ## 访问服务
@@ -109,21 +111,6 @@ http://127.0.0.1:5601
 # 操作示例
 ## kibana创建索引
 ```bash
-# 为所有 .kibana*索引（如 .kibana, .kibana_1等）统一应用配置，解决磁盘空间问题：通过减少分片和副本数量（1主分片+0副本），显著降低存储开销
-PUT _index_template/.kibana
-{
-  "index_patterns": [".kibana*"],
-  "template": {
-    "settings": {
-      "number_of_shards": 1,
-      "number_of_replicas": 0,
-      "auto_expand_replicas": false
-    }
-  },
-  "priority": 1
-}
-
-
 # 新建索引
 PUT /yaocai_drug
 {
@@ -131,18 +118,18 @@ PUT /yaocai_drug
         "number_of_shards": 1,
         "number_of_replicas": 0,
         "analysis": {
-            "filter": {  
-              "synonym_filter": {  
+            "filter": {
+              "synonym_filter": {
                 "type": "synonym",
-                "synonyms_path": "certs/synonym.txt"  
+                "synonyms_path": "synonyms/unit.txt"
               }
-            }, 
+            },
             "analyzer": {
                 "pinyin_analyzer": {
                     "tokenizer": "my_pinyin"
                 },
-                "synonym_analyzer": {  
-                  "tokenizer": "standard",  
+                "synonym_analyzer": {
+                  "tokenizer": "standard",
                   "filter": ["lowercase", "synonym_filter"]  
                 }
             },
@@ -402,6 +389,26 @@ GET /yaocai_drug/_search
     }
   }
 }
+
+
+# 为所有 .kibana*索引（如 .kibana, .kibana_1等）统一应用配置，解决磁盘空间问题：通过减少分片和副本数量（1主分片+0副本），显著降低存储开销
+PUT _index_template/.kibana
+{
+  "index_patterns": [".kibana*"],
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "auto_expand_replicas": false
+    }
+  },
+  "priority": 1
+}
+
+GET /_nodes/jvm?filter_path=nodes.*.jvm.gc_collectors
+
+# 查询内存锁定状态
+GET /_nodes?filter_path=**.mlockall
 ```
 
 
