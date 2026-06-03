@@ -21,14 +21,26 @@ trap cleanup ERR INT TERM
 echo "Checking minimum requirements..."
 
 DOCKER_VERSION=$(docker version --format '{{.Server.Version}}')
-COMPOSE_VERSION=$(docker-compose --version | sed 's/docker-compose version \(.\{1,\}\),.*/\1/')
+if command -v docker-compose &> /dev/null; then
+  COMPOSE_VERSION=$(docker-compose --version | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)
+elif docker compose version &> /dev/null; then
+  COMPOSE_VERSION=$(docker compose version --short 2>/dev/null || docker compose version | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)
+else
+  echo "FAIL: docker-compose (or docker compose plugin) is not installed"
+  exit -1
+fi
 RAM_AVAILABLE_IN_DOCKER=$(docker run --rm busybox free -m 2>/dev/null | awk '/Mem/ {print $2}');
 
 # Compare dot-separated strings - function below is inspired by https://stackoverflow.com/a/37939589/808368
-function ver () { echo "$@" | awk -F. '{ printf("%d%03d%03d", $1,$2,$3); }'; }
+function ver () { echo "$@" | sed 's/^[vV]//' | awk -F. '{ printf("%d%03d%03d", $1,$2,$3); }'; }
 
 if [ $(ver $DOCKER_VERSION) -lt $(ver $MIN_DOCKER_VERSION) ]; then
     echo "FAIL: Expected minimum Docker version to be $MIN_DOCKER_VERSION but found $DOCKER_VERSION"
+    exit -1
+fi
+
+if [ -z "$COMPOSE_VERSION" ]; then
+    echo "FAIL: Could not detect docker-compose version from: $(docker-compose --version 2>/dev/null || docker compose version 2>/dev/null)"
     exit -1
 fi
 
