@@ -9,7 +9,24 @@
 
 ## 最低硬件要求
 
- * 至少需要 3GB 内存
+官方 [onpremise 9.1.2](https://github.com/getsentry/onpremise/blob/9.1.2/README.md) 写的是：
+
+> **You need at least 3GB RAM**
+
+这是指 **整套 docker-compose 所有容器合计**（web + worker + postgres + redis + …），**不是** web 单容器上限。
+
+| 版本 | 官方最低内存 | 说明 |
+|------|-------------|------|
+| **Sentry 9.1.2**（当前） | **3GB 整机** | 轻量架构，无 Kafka/ClickHouse |
+| Sentry 21+（新版 self-hosted） | **16GB 整机** | 架构完全不同，不可类比 |
+
+实测 dev 环境各容器常驻约：web **~2G**、worker ~130MB、其余 ~200MB，**合计 ~2.3G**，符合 9.1.2 的 3GB 量级。
+
+因此：
+
+- web 容器 `docker stats` 显示 **~2G / 2G（100%）** 并不等于配置错误，而是 **web 占了整机内存的大头**
+- 把 web 的 `mem_limit` 调到 3G 仍显示 100%，是 **cgroup 上限变大后进程 RSS 仍接近上限**（或显示四舍五入），不代表 Sentry「需要 3G 才能跑 web」
+- 建议宿主机给 Docker **至少 4～6GB**，留出 OS 和其它进程余量（官方 3GB 偏紧）
 
 ## 安装
 
@@ -51,27 +68,21 @@ docker-compose run --rm web createuser
 
 > 若需通过域名访问或启用 HTTPS，请修改 `config.yml` 中的 `system.url-prefix`，并在前置代理（如 Nginx）中配置反向代理与证书。
 
-## 内存限制（约 4G）
+## 内存说明
 
-整套服务默认按 **约 4G** 总内存上限配置，分配如下：
+与官方 9.1.2 一致，**不设容器 `mem_limit`**，由宿主机统一管控内存。官方要求宿主机至少 **3GB RAM**（整套服务合计）。
 
-| 服务 | 上限 | 说明 |
-|------|------|------|
-| web | 2048m | uWSGI 1 worker + 4 threads，`reload-on-rss: 1024`；`MALLOC_ARENA_MAX=2` 抑制多核 glibc 内存膨胀 |
-| worker | 896m | Celery 并发 2（Sentry 9.x 不支持 `--max-memory-per-child`，靠容器 limit 限制） |
-| cron | 256m | 定时任务 |
-| postgres | 384m | 数据库 |
-| redis | 256m | 缓存/队列，内部 maxmemory 128mb |
-| memcached | 128m | 应用缓存，`-m 64` |
-| smtp | 64m | 邮件 |
+dev 环境典型实际占用（`docker stats`）：
 
-修改配置后需重建并重启：
+| 服务 | 约占用 | 说明 |
+|------|--------|------|
+| web | ~2G | uWSGI 1 worker + 4 threads（见 `sentry.conf.py`） |
+| worker | ~130MB | Celery 并发 2 |
+| 其余 | ~200MB | postgres、redis、memcached、cron、smtp |
 
-```sh
-docker compose up -d --build
-```
+合计约 **2.3G**，满足官方 3GB 最低要求。建议宿主机给 Docker **4～6GB**，留 OS 余量。
 
-可用 `docker stats` 观察各容器实际占用。
+uWSGI 调优见 `sentry.conf.py`（`workers: 1`、`MALLOC_ARENA_MAX=2` 等）。若需显著降低 web 内存，需 **升级 Sentry 版本**。
 
 ## 目录结构
 

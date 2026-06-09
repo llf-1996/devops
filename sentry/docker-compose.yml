@@ -33,19 +33,14 @@ services:
   smtp:
     restart: unless-stopped
     image: tianon/exim4
-    mem_limit: 64m
 
   memcached:
     restart: unless-stopped
     image: memcached:1.5-alpine
-    command: memcached -m 64
-    mem_limit: 128m
 
   redis:
     restart: unless-stopped
     image: redis:3.2-alpine
-    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
-    mem_limit: 256m
 
   postgres:
     restart: unless-stopped
@@ -54,27 +49,23 @@ services:
       POSTGRES_HOST_AUTH_METHOD: 'trust'
     volumes:
       - sentry-postgres:/var/lib/postgresql/data
-    mem_limit: 384m
 
   web:
     <<: *defaults
-    mem_limit: 2048m
     ports:
       - '11086:9000'
 
   cron:
     <<: *defaults
     command: run cron
-    mem_limit: 256m
 
   worker:
     <<: *defaults
     command: run worker -c 2
-    mem_limit: 896m
 
 
 volumes:
-    sentry-data:
-      external: true
-    sentry-postgres:
-      external: true
+  sentry-data:
+    external: true
+  sentry-postgres:
+    external: true
