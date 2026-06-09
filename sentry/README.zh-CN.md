@@ -82,7 +82,22 @@ dev 环境典型实际占用（`docker stats`）：
 
 合计约 **2.3G**，满足官方 3GB 最低要求。建议宿主机给 Docker **4～6GB**，留 OS 余量。
 
-uWSGI 调优见 `sentry.conf.py`（`workers: 1`、`MALLOC_ARENA_MAX=2` 等）。若需显著降低 web 内存，需 **升级 Sentry 版本**。
+uWSGI 调优见 `sentry.conf.py`（`workers: 1`、`MALLOC_ARENA_MAX=2` 等）。`web` 服务额外设置了 `nofile: 4096`，避免宿主机把超大的文件描述符上限传入容器，导致 uWSGI 初始化后 RSS 异常膨胀。
+
+如果 `docker stats` 里 `web` 异常达到 6G+，先检查启动日志中的这一行：
+
+```text
+detected max file descriptor number: 1073741816
+```
+
+这是异常值，重建并重启后应变为 `4096`：
+
+```sh
+docker compose up -d --build --force-recreate web
+docker compose logs web | grep "detected max file descriptor"
+```
+
+若需显著降低 web 内存，需 **升级 Sentry 版本**。
 
 ## 目录结构
 

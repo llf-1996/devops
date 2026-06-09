@@ -52,6 +52,10 @@ services:
 
   web:
     <<: *defaults
+    ulimits:
+      nofile:
+        soft: 4096
+        hard: 4096
     ports:
       - '11086:9000'
 
