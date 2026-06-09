@@ -67,7 +67,7 @@ services:
 
   worker:
     <<: *defaults
-    command: run worker -c 2 --max-memory-per-child=250000
+    command: run worker -c 2
     mem_limit: 896m
 
 

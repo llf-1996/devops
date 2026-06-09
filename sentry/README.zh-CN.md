@@ -57,8 +57,8 @@ docker-compose run --rm web createuser
 
 | 服务 | 上限 | 说明 |
 |------|------|------|
-| web | 2048m | uWSGI 2 workers，`reload-on-rss: 600`（见 `sentry.conf.py`） |
-| worker | 896m | Celery 并发 2，单进程超 250MB 自动重启 |
+| web | 2048m | uWSGI 1 worker + 4 threads，`reload-on-rss: 600`（见 `sentry.conf.py`） |
+| worker | 896m | Celery 并发 2（Sentry 9.x 不支持 `--max-memory-per-child`，靠容器 limit 限制） |
 | cron | 256m | 定时任务 |
 | postgres | 384m | 数据库 |
 | redis | 256m | 缓存/队列，内部 maxmemory 128mb |
