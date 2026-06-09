@@ -26,6 +26,31 @@
 
 如有任何问题或疑问，欢迎访问我们的 [社区论坛](https://forum.sentry.io/c/on-premise)！
 
+## 启动与访问
+
+安装完成后，启动所有服务：
+
+```sh
+docker-compose up -d
+```
+
+默认将 Web 服务映射到主机的 **11090** 端口（见 `docker-compose.yml` 中 `web` 服务的 `ports` 配置），在浏览器中访问：
+
+| 场景 | 访问地址 |
+|------|----------|
+| 本机 | http://localhost:11090 |
+| 远程服务器 | http://<服务器IP>:11090 |
+
+首次登录前需创建管理员账号。若安装时未交互式创建，可执行：
+
+```sh
+docker-compose run --rm web createuser
+```
+
+按提示填写邮箱、密码等信息后即可登录 Web 界面。
+
+> 若需通过域名访问或启用 HTTPS，请修改 `config.yml` 中的 `system.url-prefix`，并在前置代理（如 Nginx）中配置反向代理与证书。
+
 ## 目录结构
 
 ```
