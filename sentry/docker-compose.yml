@@ -51,7 +51,7 @@ services:
   web:
     <<: *defaults
     ports:
-      - '11090:9000'
+      - '11086:9000'
 
   cron:
     <<: *defaults
