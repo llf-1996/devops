@@ -23,6 +23,8 @@ x-defaults: &defaults
     SENTRY_REDIS_HOST: redis
     SENTRY_POSTGRES_HOST: postgres
     SENTRY_EMAIL_HOST: smtp
+    # Limit glibc malloc arenas; avoids RSS bloat on multi-core hosts (see 12 cores in uwsgi log)
+    MALLOC_ARENA_MAX: "2"
   volumes:
     - sentry-data:/var/lib/sentry/files
 
@@ -56,7 +58,7 @@ services:
 
   web:
     <<: *defaults
-    mem_limit: 3072m
+    mem_limit: 2048m
     ports:
       - '11086:9000'
 

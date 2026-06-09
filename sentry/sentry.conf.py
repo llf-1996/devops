@@ -265,13 +265,13 @@ SENTRY_WEB_OPTIONS = {
     'uwsgi-socket': None,
     'http-keepalive': True,
     'memory-report': False,
-    # Tuned for ~3G web container (dev: 1 worker + threads for concurrency)
+    # Tuned for ~2G web container (dev: 1 worker + threads for concurrency)
     'workers': 1,
     'threads': 4,
-    'max-requests': 100000,
+    'max-requests': 10000,
     'max-requests-delta': 500,
     'max-worker-lifetime': 86400,
-    'reload-on-rss': 2048,
+    'reload-on-rss': 1024,
     'thunder-lock': True,
     'buffer-size': 32768,
     'disable-logging': True,
