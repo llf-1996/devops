@@ -265,7 +265,7 @@ SENTRY_WEB_OPTIONS = {
     'uwsgi-socket': None,
     'http-keepalive': True,
     'memory-report': False,
-    # Tuned for ~1.5G web container (total stack budget ~4G)
+    # Tuned for ~2G web container (total stack budget ~4G)
     'workers': 2,
     'threads': 4,
     'max-requests': 100000,

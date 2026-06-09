@@ -52,23 +52,23 @@ services:
       POSTGRES_HOST_AUTH_METHOD: 'trust'
     volumes:
       - sentry-postgres:/var/lib/postgresql/data
-    mem_limit: 512m
+    mem_limit: 384m
 
   web:
     <<: *defaults
-    mem_limit: 1536m
+    mem_limit: 2048m
     ports:
       - '11086:9000'
 
   cron:
     <<: *defaults
     command: run cron
-    mem_limit: 384m
+    mem_limit: 256m
 
   worker:
     <<: *defaults
     command: run worker -c 2 --max-memory-per-child=250000
-    mem_limit: 1024m
+    mem_limit: 896m
 
 
 volumes:
