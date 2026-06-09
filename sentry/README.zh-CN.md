@@ -51,13 +51,13 @@ docker-compose run --rm web createuser
 
 > 若需通过域名访问或启用 HTTPS，请修改 `config.yml` 中的 `system.url-prefix`，并在前置代理（如 Nginx）中配置反向代理与证书。
 
-## 内存限制（约 4G）
+## 内存限制（约 5G）
 
-整套服务默认按 **约 4G** 总内存预算配置，分配如下：
+整套服务默认按 **约 5G** 总内存上限配置（web 单 worker 基线约 2G，需预留余量），分配如下：
 
 | 服务 | 上限 | 说明 |
 |------|------|------|
-| web | 2048m | uWSGI 1 worker + 4 threads，`reload-on-rss: 600`（见 `sentry.conf.py`） |
+| web | 3072m | uWSGI 1 worker + 4 threads，`reload-on-rss: 2048`（见 `sentry.conf.py`） |
 | worker | 896m | Celery 并发 2（Sentry 9.x 不支持 `--max-memory-per-child`，靠容器 limit 限制） |
 | cron | 256m | 定时任务 |
 | postgres | 384m | 数据库 |

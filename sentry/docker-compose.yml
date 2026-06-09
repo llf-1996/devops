@@ -56,7 +56,7 @@ services:
 
   web:
     <<: *defaults
-    mem_limit: 2048m
+    mem_limit: 3072m
     ports:
       - '11086:9000'
 
