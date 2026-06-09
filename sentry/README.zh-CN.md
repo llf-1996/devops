@@ -51,6 +51,28 @@ docker-compose run --rm web createuser
 
 > 若需通过域名访问或启用 HTTPS，请修改 `config.yml` 中的 `system.url-prefix`，并在前置代理（如 Nginx）中配置反向代理与证书。
 
+## 内存限制（约 4G）
+
+整套服务默认按 **约 4G** 总内存预算配置，分配如下：
+
+| 服务 | 上限 | 说明 |
+|------|------|------|
+| web | 1536m | uWSGI 2 workers，`reload-on-rss: 600`（见 `sentry.conf.py`） |
+| worker | 1024m | Celery 并发 2，单进程超 250MB 自动重启 |
+| cron | 384m | 定时任务 |
+| postgres | 512m | 数据库 |
+| redis | 256m | 缓存/队列，内部 maxmemory 128mb |
+| memcached | 128m | 应用缓存，`-m 64` |
+| smtp | 64m | 邮件 |
+
+修改配置后需重建并重启：
+
+```sh
+docker compose up -d --build
+```
+
+可用 `docker stats` 观察各容器实际占用。
+
 ## 目录结构
 
 ```
