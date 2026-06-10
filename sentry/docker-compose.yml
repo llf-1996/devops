@@ -65,7 +65,7 @@ services:
 
   worker:
     <<: *defaults
-    command: run worker -c 2
+    command: run worker -c 4
 
 
 volumes:
