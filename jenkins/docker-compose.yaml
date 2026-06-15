@@ -13,7 +13,7 @@ services:
       # - /root/.ssh:/root/.ssh
       - /www/wwwroot:/dist
     environment:
-      - JAVA_OPTS=-Djava.awt.headless=true -Xmx3g -Xms2g -XX:+UseG1GC -XX:+UseContainerSupport
+      - JAVA_OPTS=-Djava.awt.headless=true -Xmx1g -Xms512m -XX:+UseG1GC -XX:+UseContainerSupport
       - TZ=Asia/Shanghai
     privileged: true
     user: root
@@ -21,10 +21,10 @@ services:
       resources:
         limits:
           memory: 4G
-          cpus: '2.0'
+          cpus: '4.0'
         reservations:
           memory: 2G
-          cpus: '1.0'
+          cpus: '2.0'
     logging:
       driver: json-file
       options:
