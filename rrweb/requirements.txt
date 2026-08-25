@@ -1,5 +1,8 @@
+# py3.11
+# pip install -i https://mirrors.aliyun.com/pypi/simple/ -r requirements.txt
 fastapi==0.103.2
 uvicorn==0.22.0
 sqlalchemy==2.0.41
 pymysql==1.1.1
 alembic==1.12.1
+requests==2.31.0

@@ -11,8 +11,8 @@ from alembic import context
 def include_object(object, name, type_, reflected, compare_to):
     # print("include_object: ", object, name, type_, reflected, compare_to)
     if type_ == "table":
-        # 只迁移 events 表
-        return name in ["events"]
+        # 只迁移录屏相关表
+        return name in ["rrweb_sessions", "rrweb_event_details", "events"]
     return True
 
 
@@ -30,8 +30,13 @@ if config.config_file_name is not None:
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
 # target_metadata = None
+from config import DATABASE_URL
 from app.models import Base
+
 target_metadata = Base.metadata
+
+# 数据库连接统一取自 config.py
+config.set_main_option("sqlalchemy.url", DATABASE_URL)
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
