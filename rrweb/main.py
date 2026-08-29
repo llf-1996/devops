@@ -30,7 +30,7 @@ def get_db():
         db.close()
 
 
-@app.get("/events", response_model=dict)
+@app.get("/events", response_model=schemas.EventListResponse)
 def list_events(
     page: int = 1,
     page_size: int = 20,
@@ -55,7 +55,7 @@ def list_events(
         order_plan_id=order_plan_id,
     )
     results_out = [schemas.EventListOut.model_validate(r) for r in results]
-    return {"count": count, "results": results_out}
+    return schemas.EventListResponse(count=count, results=results_out)
 
 
 @app.get("/events/detail", response_model=List[schemas.EventDetailOut])
@@ -67,7 +67,8 @@ def get_event(
     _auth: dict = Depends(require_auth),
 ):
     """录屏详情：按会话拉取分片，按 id 升序。"""
-    return crud.get_event_details(db, request_id, company_id, user_id)
+    details = crud.get_event_details(db, request_id, company_id, user_id)
+    return [schemas.EventDetailOut.model_validate(item) for item in details]
 
 
 @app.post("/events", response_model=schemas.EventListOut)
@@ -77,4 +78,5 @@ def create_event(
     _auth: dict = Depends(require_auth),
 ):
     """上报：upsert 会话并插入事件分片。"""
-    return crud.create_event(db, event)
+    ins_session = crud.create_event(db, event)
+    return schemas.EventListOut.model_validate(ins_session)

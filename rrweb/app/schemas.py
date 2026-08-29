@@ -1,7 +1,20 @@
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import Annotated, Any, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, PlainSerializer
+
+from app.utils.datetime_utils import to_iso_string
+
+ISODatetime = Annotated[
+    Optional[datetime],
+    PlainSerializer(to_iso_string, return_type=Optional[str]),
+]
+
+
+class AppSchemaBase(BaseModel):
+    """响应 Schema 基类：支持 ORM 对象转换。"""
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class EventCreate(BaseModel):
@@ -17,7 +30,7 @@ class EventCreate(BaseModel):
     record_type: int = 1
 
 
-class EventListOut(BaseModel):
+class EventListOut(AppSchemaBase):
     """录屏列出会话项。"""
 
     id: int
@@ -28,21 +41,22 @@ class EventListOut(BaseModel):
     payload: Optional[dict] = Field(default_factory=dict)
     request_id: Optional[str] = None
     record_type: int = 1
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
+    created_at: ISODatetime = None
+    updated_at: ISODatetime = None
 
 
-class EventDetailOut(BaseModel):
+class EventDetailOut(AppSchemaBase):
     """录屏详情分片项（回放按 id 升序拼接 events）。"""
 
     id: int
     session_id: int
     events: List[Any]
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: ISODatetime = None
+    updated_at: ISODatetime = None
 
-    class Config:
-        from_attributes = True
+
+class EventListResponse(AppSchemaBase):
+    """录屏列表响应。"""
+
+    count: int
+    results: List[EventListOut]

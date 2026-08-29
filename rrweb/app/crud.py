@@ -1,10 +1,10 @@
-from datetime import datetime
 from typing import List, Optional, Tuple
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from . import models, schemas
+from .utils.datetime_utils import get_now
 
 
 def get_event_details(
@@ -100,7 +100,7 @@ def create_event(db: Session, event: schemas.EventCreate) -> models.RrwebSession
         )
         .first()
     )
-    now = datetime.now()
+    now = get_now()
     if ins_session:
         ins_session.company_name = event.company_name
         ins_session.user_name = event.user_name
