@@ -91,8 +91,8 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 2. 每 **10 秒** 定时 `save()` 上报一包；停止录制时再 `save()` 一次
 3. 同一标签页内 `request_id` 存 `sessionStorage`，多包归并为同一会话
 4. `rrWebStop` 清除 `request_id`，下次 `rrWebStart` 生成新会话
-5. 上报队列串行（`reportQueue`），避免分片乱序
-6. 最长录制 **1 小时** 自动停止
+5. 上报队列串行（`reportQueue`）+ 单调 `seq`，回放按 `seq`（空则按 `id`）
+6. 最长录制 **1 小时** 自动停止；后端 BackgroundTasks 异步落库，允许丢片
 
 #### 应用入口：注册总线（`main.js`）
 
@@ -127,7 +127,7 @@ let order_plan_id,
   timer = null,
   userInfo = {};
 
-/** 串行上报链：上一包完成后再发下一包，保证入库 id 与刷出顺序一致 */
+/** 串行上报链：上一包 HTTP 返回后再发下一包；落库为后台任务，顺序靠 seq */
 let reportQueue = Promise.resolve();
 
 function rrWebStart(current_order_plan_id) {
@@ -157,6 +157,7 @@ function rrWebStop() {
     rrwebStopFn();
     rrwebStopFn = null;
     sessionStorage.removeItem("rrweb_request_id");
+    sessionStorage.removeItem("rrweb_report_seq");
   }
   if (timer) {
     clearInterval(timer);
@@ -173,6 +174,7 @@ function save() {
   if (!request_id) {
     request_id = generateRequestId();
     sessionStorage.setItem("rrweb_request_id", request_id);
+    sessionStorage.removeItem("rrweb_report_seq");
   }
   if (Object.keys(userInfo).length === 0) {
     let rawInfo = localStorage.getItem("userInfo") || "{}";
@@ -184,10 +186,14 @@ function save() {
       user_name: rawInfo.username,
     };
   }
+  const prevSeq = Number(sessionStorage.getItem("rrweb_report_seq") || "0") || 0;
+  const seq = prevSeq + 1;
+  sessionStorage.setItem("rrweb_report_seq", String(seq));
   const body = {
     ...userInfo,
     events,
     request_id: request_id,
+    seq,
     record_type: RECORD_TYPE_ORDER_PLAN,
     payload: {
       order_plan_id,
@@ -489,6 +495,7 @@ curl -sS "{BASE_URL}/ping"
 | `request_id` | string | 是 | 本次录制会话 ID（前端 15 位随机串，同标签多包共用） |
 | `record_type` | int | 是 | 录屏类型，`1` = 采购订单录屏 |
 | `events` | array | 是 | rrweb 事件数组（pack 压缩后的一包） |
+| `seq` | int | 否 | 同一会话内分片序号，前端单调递增；回放优先按此排序 |
 | `company_id` | int | 否 | 公司 ID |
 | `company_name` | string | 否 | 公司名称 |
 | `user_id` | int | 否 | 用户 ID |
@@ -504,6 +511,7 @@ curl -sS -X POST "{BASE_URL}/events" \
   -d '{
     "request_id": "aBcDeFgHiJkLmNo",
     "record_type": 1,
+    "seq": 1,
     "company_id": 1,
     "company_name": "示例公司",
     "user_id": 100,
@@ -517,24 +525,17 @@ curl -sS -X POST "{BASE_URL}/events" \
 
 ```json
 {
-  "id": 1,
+  "status": "accepted",
   "request_id": "aBcDeFgHiJkLmNo",
-  "record_type": 1,
-  "company_id": 1,
-  "company_name": "示例公司",
-  "user_id": 100,
-  "user_name": "demo_user",
-  "payload": { "order_plan_id": 12345 },
-  "created_at": "2026-08-29T10:25:00+08:00",
-  "updated_at": "2026-08-29T10:25:00+08:00"
+  "seq": 1
 }
 ```
 
 **字段说明**：
 
-- 后端按 `(request_id, company_id, user_id)` **upsert** 会话表，每次上报 **insert** 一条事件分片
-- `created_at` / `updated_at` 为 ISO 8601 字符串（北京时间）
-- 分片按入库 `id` 升序拼接；前端串行上报保证与录制顺序一致
+- 鉴权通过后立即返回 `accepted`，分片由 **BackgroundTasks** 异步落库（允许丢片）
+- 后端按 `(request_id, company_id, user_id)` **upsert** 会话表，每次上报 **insert** 一条事件分片（含 `seq`）
+- 回放顺序：有 `seq` 按 `seq` 升序，`seq` 为空的旧数据再按 `id` 升序
 
 **策略说明**：同一 `request_id` 多次 `POST` 会更新会话元数据并追加 `rrweb_event_details` 行，不会覆盖历史分片。
 
@@ -617,6 +618,7 @@ curl -sS "{BASE_URL}/events/detail?request_id=aBcDeFgHiJkLmNo&company_id=1&user_
   {
     "id": 10,
     "session_id": 1,
+    "seq": 1,
     "events": [{ "type": 4, "data": {}, "timestamp": 1710000000000 }],
     "created_at": "2026-08-29T10:20:10+08:00",
     "updated_at": "2026-08-29T10:20:10+08:00"
@@ -624,6 +626,7 @@ curl -sS "{BASE_URL}/events/detail?request_id=aBcDeFgHiJkLmNo&company_id=1&user_
   {
     "id": 11,
     "session_id": 1,
+    "seq": 2,
     "events": [{ "type": 3, "data": {}, "timestamp": 1710000010000 }],
     "created_at": "2026-08-29T10:20:20+08:00",
     "updated_at": "2026-08-29T10:20:20+08:00"
@@ -633,7 +636,7 @@ curl -sS "{BASE_URL}/events/detail?request_id=aBcDeFgHiJkLmNo&company_id=1&user_
 
 **字段说明**：
 
-- 返回该会话下全部分片，按分片 `id` **升序**
+- 返回该会话下全部分片，排序：`seq` 升序，`seq` 为空时再按 `id` 升序
 - 回放端需 `flatMap` 合并各分片 `events`，再按事件 `timestamp` 排序后交给 `rrweb-player`
 
 ---

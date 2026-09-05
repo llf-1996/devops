@@ -28,6 +28,15 @@ class EventCreate(BaseModel):
     payload: Optional[dict] = Field(default_factory=dict)
     request_id: str
     record_type: int = 1
+    seq: Optional[int] = Field(default=None, description="同一会话内分片序号，前端单调递增")
+
+
+class EventAcceptOut(AppSchemaBase):
+    """录屏上报受理响应（BackgroundTasks 异步落库）。"""
+
+    status: str = "accepted"
+    request_id: str
+    seq: Optional[int] = None
 
 
 class EventListOut(AppSchemaBase):
@@ -46,10 +55,11 @@ class EventListOut(AppSchemaBase):
 
 
 class EventDetailOut(AppSchemaBase):
-    """录屏详情分片项（回放按 id 升序拼接 events）。"""
+    """录屏详情分片项（回放优先按 seq，空则按 id）。"""
 
     id: int
     session_id: int
+    seq: Optional[int] = None
     events: List[Any]
     created_at: ISODatetime = None
     updated_at: ISODatetime = None

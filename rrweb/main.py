@@ -1,6 +1,7 @@
+import logging
 from typing import List, Optional
 
-from fastapi import Depends, FastAPI, Query
+from fastapi import BackgroundTasks, Depends, FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -8,6 +9,8 @@ from app import crud, schemas
 from app.auth import require_auth
 from app.database import SessionLocal
 from app.exceptions import exception_handler
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 app.add_exception_handler(Exception, exception_handler)
@@ -31,6 +34,21 @@ def get_db():
     db = SessionLocal()
     try:
         yield db
+    finally:
+        db.close()
+
+
+def _persist_event(event: schemas.EventCreate) -> None:
+    """后台落库：独立 Session，失败仅记日志（允许丢片）。"""
+    db = SessionLocal()
+    try:
+        crud.create_event(db, event)
+    except Exception:
+        logger.exception(
+            "rrweb 分片落库失败 request_id=%s seq=%s",
+            event.request_id,
+            event.seq,
+        )
     finally:
         db.close()
 
@@ -77,17 +95,20 @@ def get_event(
     db: Session = Depends(get_db),
     _auth: dict = Depends(require_auth),
 ):
-    """录屏详情：按会话拉取分片，按 id 升序。"""
+    """录屏详情：按会话拉取分片；有 seq 按 seq，空则按 id。"""
     details = crud.get_event_details(db, request_id, company_id, user_id)
     return [schemas.EventDetailOut.model_validate(item) for item in details]
 
 
-@app.post("/events", response_model=schemas.EventListOut)
+@app.post("/events", response_model=schemas.EventAcceptOut)
 def create_event(
     event: schemas.EventCreate,
-    db: Session = Depends(get_db),
+    background_tasks: BackgroundTasks,
     _auth: dict = Depends(require_auth),
 ):
-    """上报：upsert 会话并插入事件分片。"""
-    ins_session = crud.create_event(db, event)
-    return schemas.EventListOut.model_validate(ins_session)
+    """
+    上报受理：鉴权通过后入 BackgroundTasks 异步落库，立即返回 accepted。
+    允许丢片；回放顺序依赖前端单调 seq。
+    """
+    background_tasks.add_task(_persist_event, event)
+    return schemas.EventAcceptOut(status="accepted", request_id=event.request_id, seq=event.seq)

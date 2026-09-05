@@ -52,6 +52,13 @@ class RrwebEventDetail(Base):
     """录屏事件分片详情。"""
 
     __tablename__ = "rrweb_event_details"
+    __table_args__ = (
+        UniqueConstraint(
+            "session_id",
+            "seq",
+            name="uq_rrweb_event_details_session_seq",
+        ),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True, index=True, comment="主键ID")
     created_at = Column(DateTime, default=func.now(), nullable=True, comment="创建时间")
@@ -59,4 +66,9 @@ class RrwebEventDetail(Base):
         DateTime, default=func.now(), onupdate=func.now(), nullable=True, comment="更新时间"
     )
     session_id = Column(Integer, nullable=False, index=True, comment="所属会话ID")
+    seq = Column(
+        Integer,
+        nullable=True,
+        comment="同一会话内分片序号（前端单调递增；空则回放按 id）",
+    )
     events = Column(MySQLJSON, nullable=False, comment="事件内容")

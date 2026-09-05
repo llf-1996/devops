@@ -10,7 +10,7 @@ from .utils.datetime_utils import get_now
 def get_event_details(
     db: Session, request_id: str, company_id: int, user_id: int
 ) -> List[models.RrwebEventDetail]:
-    """按会话定位后，按 id 升序返回事件分片。"""
+    """按会话定位后返回事件分片：有 seq 按 seq，空 seq 再按 id。"""
     ins_session = (
         db.query(models.RrwebSession)
         .filter(
@@ -25,7 +25,10 @@ def get_event_details(
     return (
         db.query(models.RrwebEventDetail)
         .filter(models.RrwebEventDetail.session_id == ins_session.id)
-        .order_by(models.RrwebEventDetail.id.asc())
+        .order_by(
+            models.RrwebEventDetail.seq.asc(),
+            models.RrwebEventDetail.id.asc(),
+        )
         .all()
     )
 
@@ -124,6 +127,7 @@ def create_event(db: Session, event: schemas.EventCreate) -> models.RrwebSession
 
     ins_detail = models.RrwebEventDetail(
         session_id=ins_session.id,
+        seq=event.seq,
         events=event.events,
         created_at=now,
         updated_at=now,
