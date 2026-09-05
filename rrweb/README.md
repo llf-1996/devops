@@ -63,6 +63,8 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 所有接口需请求头携带 token，由本服务转发主站 `GET /api/up/auth/verify/` 校验（配置项 `AUTH_VERIFY_URL`，校验协议见主站鉴权文档）。
 
+校验**成功**的结果会按 `AUTH_VERIFY_CACHE_TTL`（默认 8 小时）做进程内短时缓存：同一 token 在有效期内不重复请求主站；失败结果不缓存。多 worker 时各进程缓存独立。
+
 | Header | 说明 |
 |--------|------|
 | `token` | JWT 或 LongToken |
