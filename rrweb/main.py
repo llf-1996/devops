@@ -12,10 +12,15 @@ from app.exceptions import exception_handler
 app = FastAPI()
 app.add_exception_handler(Exception, exception_handler)
 
-# 允许所有跨域请求
+# 跨域白名单（禁止 * 与 credentials 同开）
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://admin.yaocai.co",
+        "https://admin.test.yaocai.co",
+        "https://y.yaocai.co",
+        "https://y.test.yaocai.co",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -28,6 +33,12 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+@app.get("/ping")
+def ping():
+    """健康检查（无需鉴权），供容器探活使用。"""
+    return {"status": "ok"}
 
 
 @app.get("/events", response_model=schemas.EventListResponse)

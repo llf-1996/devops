@@ -61,7 +61,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 ## 7. 鉴权
 
-所有接口需请求头携带 token，由本服务转发主站 `GET /api/v1/auth/verify/` 校验（配置项 `AUTH_VERIFY_URL`，校验协议见主站鉴权文档）。
+所有接口需请求头携带 token，由本服务转发主站 `GET /api/up/auth/verify/` 校验（配置项 `AUTH_VERIFY_URL`，校验协议见主站鉴权文档）。
 
 | Header | 说明 |
 |--------|------|
@@ -457,6 +457,26 @@ export function rrWebPlayerView(domId: string, events: unknown[]) {
 ## 9. 接口说明
 
 基础路径示例：`https://<gateway-host>/api_rrweb`（以实际网关配置为准，下文记为 `{BASE_URL}`）。
+
+### 9.0 健康检查
+
+**接口地址**：`GET {BASE_URL}/ping`
+
+**鉴权**：无需 token
+
+**用途**：容器 / 负载探活，确认进程可响应。
+
+**请求示例**：
+
+```bash
+curl -sS "{BASE_URL}/ping"
+```
+
+**响应示例**：
+
+```json
+{"status": "ok"}
+```
 
 ### 9.1 上报录屏分片
 

@@ -1,5 +1,5 @@
 """
-rrweb 接口认证：转发 token 至主站 /api/v1/auth/verify/，与 YaoCaiUserAuth 校验逻辑一致。
+rrweb 接口认证：转发 token 至主站 /api/up/auth/verify/，与 YaoCaiUserAuth 校验逻辑一致。
 """
 
 from typing import Optional
