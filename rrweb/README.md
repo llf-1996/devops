@@ -21,7 +21,7 @@ pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
 
 ## 4. 数据库迁移
 
-表结构：`rrweb_sessions`（会话）+ `rrweb_event_details`（事件分片）。无旧数据回填，DDL 以仓库内 Alembic revision 为准。
+表结构：`rrweb_sessions`（会话，含 `is_locked`）+ `rrweb_event_details`（事件分片）。无旧数据回填，DDL 以仓库内 Alembic revision 为准。
 
 ### 开发本地（改模型后）
 
@@ -432,7 +432,7 @@ curl -sS -X POST "{BASE_URL}/events" \
 - 后端按 `(request_id, company_id, user_id)` **upsert** 会话表，每次上报 **insert** 一条事件分片（含 `seq`）
 - 回放顺序：有 `seq` 按 `seq` 升序，`seq` 为空的旧数据再按 `id` 升序
 
-**策略说明**：同一 `request_id` 多次 `POST` 会更新会话元数据并追加 `rrweb_event_details` 行，不会覆盖历史分片。
+**策略说明**：同一 `request_id` 多次 `POST` 会更新会话元数据并追加 `rrweb_event_details` 行，不会覆盖历史分片；**不会覆盖**已有会话的 `is_locked`。
 
 ---
 
@@ -468,6 +468,7 @@ curl -sS "{BASE_URL}/events?page=1&page_size=20&order_plan_id=12345" \
       "id": 1,
       "request_id": "aBcDeFgHiJkLmNo",
       "record_type": 1,
+      "is_locked": 0,
       "company_id": 1,
       "company_name": "示例公司",
       "user_id": 100,
@@ -484,6 +485,7 @@ curl -sS "{BASE_URL}/events?page=1&page_size=20&order_plan_id=12345" \
 
 - 列表按 `updated_at` 降序
 - `payload.order_plan_id` 即用户端上报的采购订单 ID，管理端「采购订单 ID」筛选用此字段
+- `is_locked`：`0` 未锁定，`1` 已锁定（禁止删除与清理）
 
 ---
 
@@ -533,6 +535,94 @@ curl -sS "{BASE_URL}/events/detail?request_id=aBcDeFgHiJkLmNo&company_id=1&user_
 
 - 返回该会话下全部分片，排序：`seq` 升序，`seq` 为空时再按 `id` 升序
 - 回放端需 `flatMap` 合并各分片 `events`，再按事件 `timestamp` 排序后交给 `rrweb-player`
+
+---
+
+### 9.4 锁定 / 解锁会话
+
+**接口地址**：`PATCH {BASE_URL}/events/{session_id}/lock`
+
+**路径参数**：`session_id` 会话主键 ID
+
+**请求参数（Body JSON）**：
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `is_locked` | bool | 是 | `true` 锁定，`false` 解锁 |
+
+**请求示例**：
+
+```bash
+curl -sS -X PATCH "{BASE_URL}/events/1/lock" \
+  -H "Content-Type: application/json" \
+  -H "token: <your-token>" \
+  -d '{"is_locked": true}'
+```
+
+**响应示例**：
+
+```json
+{"id": 1, "is_locked": 1}
+```
+
+**策略说明**：锁定后不可单条删除、不可被清理接口删除；上报 upsert 不覆盖锁定状态。
+
+---
+
+### 9.5 删除会话
+
+**接口地址**：`DELETE {BASE_URL}/events/{session_id}`
+
+**路径参数**：`session_id` 会话主键 ID
+
+**请求示例**：
+
+```bash
+curl -sS -X DELETE "{BASE_URL}/events/1" \
+  -H "token: <your-token>"
+```
+
+**响应示例**：
+
+```json
+{"id": 1, "status": "deleted"}
+```
+
+**字段说明**：
+
+- 同步删除 `rrweb_event_details` 中该会话分片
+- 已锁定返回 HTTP 400，`msg` 为「已锁定，无法删除」
+- 不存在返回 HTTP 404
+
+---
+
+### 9.6 清理过期未锁定会话
+
+**接口地址**：`POST {BASE_URL}/events/cleanup`
+
+**用途**：管理端「清理」按钮；只保留最近六个月数据，**保留锁定回放**（`is_locked=1` 不删）。
+
+**请求示例**：
+
+```bash
+curl -sS -X POST "{BASE_URL}/events/cleanup" \
+  -H "token: <your-token>"
+```
+
+**响应示例**：
+
+```json
+{
+  "status": "accepted",
+  "cutoff_at": "2025-09-10T15:00:00+08:00"
+}
+```
+
+**字段说明**：
+
+- 鉴权通过后立即返回 `accepted`，清理由 **BackgroundTasks** 异步执行
+- `cutoff_at`：清理分界时间（当前时间往前 `30 * 6` 天）
+- 实际删除条件：`is_locked = 0` 且 `updated_at < cutoff_at`；已锁定保留
 
 ---
 

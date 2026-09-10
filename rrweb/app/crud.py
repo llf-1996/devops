@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional, Tuple
 
 from sqlalchemy import or_
@@ -5,6 +6,14 @@ from sqlalchemy.orm import Session
 
 from . import models, schemas
 from .utils.datetime_utils import get_now
+
+
+class SessionLockedError(Exception):
+    """会话已锁定，禁止删除。"""
+
+
+class SessionNotFoundError(Exception):
+    """会话不存在。"""
 
 
 def get_event_details(
@@ -89,9 +98,73 @@ def get_events(
     return count, results
 
 
+def get_session_by_id(db: Session, session_id: int) -> Optional[models.RrwebSession]:
+    """按主键查询录屏会话。"""
+    return db.query(models.RrwebSession).filter(models.RrwebSession.id == session_id).first()
+
+
+def set_session_locked(db: Session, session_id: int, locked: bool) -> models.RrwebSession:
+    """设置会话锁定状态；会话不存在则抛 SessionNotFoundError。"""
+    ins_session = get_session_by_id(db, session_id)
+    if not ins_session:
+        raise SessionNotFoundError(f"会话不存在: id={session_id}")
+    ins_session.is_locked = 1 if locked else 0
+    ins_session.updated_at = get_now()
+    db.commit()
+    db.refresh(ins_session)
+    return ins_session
+
+
+def _delete_session_and_details(db: Session, ins_session: models.RrwebSession) -> None:
+    """删除会话及其事件分片（调用方保证未锁定）。"""
+    db.query(models.RrwebEventDetail).filter(
+        models.RrwebEventDetail.session_id == ins_session.id
+    ).delete(synchronize_session=False)
+    db.delete(ins_session)
+
+
+def delete_session(db: Session, session_id: int) -> int:
+    """
+    删除单个录屏会话及其分片。
+    已锁定抛 SessionLockedError；不存在抛 SessionNotFoundError。
+    返回已删除的会话 id。
+    """
+    ins_session = get_session_by_id(db, session_id)
+    if not ins_session:
+        raise SessionNotFoundError(f"会话不存在: id={session_id}")
+    if ins_session.is_locked:
+        raise SessionLockedError("已锁定，无法删除")
+    deleted_id = ins_session.id
+    _delete_session_and_details(db, ins_session)
+    db.commit()
+    return deleted_id
+
+
+def cleanup_unlocked_sessions(db: Session, older_than: datetime) -> int:
+    """
+    清理未锁定且 updated_at 早于 older_than 的会话及其分片。
+    返回删除的会话条数。
+    """
+    qs_session = (
+        db.query(models.RrwebSession)
+        .filter(
+            models.RrwebSession.is_locked == 0,
+            models.RrwebSession.updated_at < older_than,
+        )
+        .all()
+    )
+    deleted_count = 0
+    for ins_session in qs_session:
+        _delete_session_and_details(db, ins_session)
+        deleted_count += 1
+    db.commit()
+    return deleted_count
+
+
 def create_event(db: Session, event: schemas.EventCreate) -> models.RrwebSession:
     """
     按三元组 upsert 会话，并插入一条事件分片。
+    更新已有会话时不覆盖 is_locked。
     返回更新后的会话（供列表字段展示）。
     """
     ins_session = (
@@ -118,6 +191,7 @@ def create_event(db: Session, event: schemas.EventCreate) -> models.RrwebSession
             user_id=event.user_id,
             user_name=event.user_name,
             record_type=event.record_type,
+            is_locked=0,
             payload=event.payload or {},
             created_at=now,
             updated_at=now,

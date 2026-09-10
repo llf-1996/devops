@@ -45,6 +45,13 @@ class RrwebSession(Base):
         server_default="1",
         comment="录屏类型：1=采购订单录屏",
     )
+    is_locked = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        server_default="0",
+        comment="是否锁定：1=锁定，禁止删除与清理",
+    )
     payload = Column(MySQLJSON, nullable=True, comment="附加数据（含 order_plan_id 等）")
 
 

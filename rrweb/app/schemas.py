@@ -50,8 +50,36 @@ class EventListOut(AppSchemaBase):
     payload: Optional[dict] = Field(default_factory=dict)
     request_id: Optional[str] = None
     record_type: int = 1
+    is_locked: int = 0
     created_at: ISODatetime = None
     updated_at: ISODatetime = None
+
+
+class SessionLockIn(BaseModel):
+    """会话锁定状态更新请求体。"""
+
+    is_locked: bool = Field(..., description="true=锁定，false=解锁")
+
+
+class SessionLockOut(AppSchemaBase):
+    """会话锁定状态更新响应。"""
+
+    id: int
+    is_locked: int
+
+
+class SessionDeleteOut(AppSchemaBase):
+    """会话删除响应。"""
+
+    id: int
+    status: str = "deleted"
+
+
+class CleanupOut(AppSchemaBase):
+    """清理受理响应（BackgroundTasks 异步执行）。"""
+
+    status: str = "accepted"
+    cutoff_at: ISODatetime = None
 
 
 class EventDetailOut(AppSchemaBase):

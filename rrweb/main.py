@@ -1,18 +1,21 @@
 import logging
+from datetime import datetime, timedelta
 from typing import List, Optional
 
-from fastapi import BackgroundTasks, Depends, FastAPI, Query
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from app import crud, schemas
 from app.auth import require_auth
 from app.database import SessionLocal
-from app.exceptions import exception_handler
+from app.exceptions import exception_handler, http_exception_handler
+from app.utils.datetime_utils import get_now
 
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
+app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, exception_handler)
 
 # 跨域白名单（禁止 * 与 credentials 同开）
@@ -49,6 +52,18 @@ def _persist_event(event: schemas.EventCreate) -> None:
             event.request_id,
             event.seq,
         )
+    finally:
+        db.close()
+
+
+def _cleanup_unlocked_sessions(cutoff_naive: datetime) -> None:
+    """后台清理：独立 Session，失败仅记日志。"""
+    db = SessionLocal()
+    try:
+        deleted_count = crud.cleanup_unlocked_sessions(db, cutoff_naive)
+        logger.info("rrweb 清理完成 deleted_count=%s cutoff=%s", deleted_count, cutoff_naive)
+    except Exception:
+        logger.exception("rrweb 清理失败 cutoff=%s", cutoff_naive)
     finally:
         db.close()
 
@@ -112,3 +127,50 @@ def create_event(
     """
     background_tasks.add_task(_persist_event, event)
     return schemas.EventAcceptOut(status="accepted", request_id=event.request_id, seq=event.seq)
+
+
+@app.patch("/events/{session_id}/lock", response_model=schemas.SessionLockOut)
+def lock_session(
+    session_id: int,
+    body: schemas.SessionLockIn,
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_auth),
+):
+    """锁定或解锁录屏会话；锁定后不可删除、不可被清理。"""
+    try:
+        ins_session = crud.set_session_locked(db, session_id, body.is_locked)
+    except crud.SessionNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return schemas.SessionLockOut(id=ins_session.id, is_locked=ins_session.is_locked)
+
+
+@app.delete("/events/{session_id}", response_model=schemas.SessionDeleteOut)
+def delete_session(
+    session_id: int,
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_auth),
+):
+    """删除单个录屏会话及其分片；已锁定则拒绝。"""
+    try:
+        deleted_id = crud.delete_session(db, session_id)
+    except crud.SessionNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except crud.SessionLockedError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return schemas.SessionDeleteOut(id=deleted_id, status="deleted")
+
+
+@app.post("/events/cleanup", response_model=schemas.CleanupOut)
+def cleanup_events(
+    background_tasks: BackgroundTasks,
+    _auth: dict = Depends(require_auth),
+):
+    """
+    清理受理：鉴权通过后入 BackgroundTasks 异步清理 6 个月以前且未锁定的会话。
+    已锁定保留；立即返回 accepted。
+    """
+    cutoff_at = get_now() - timedelta(days=30 * 6)
+    # MySQL DATETIME 常为无时区；与库内 naive 比较时去掉 tzinfo
+    cutoff_naive = cutoff_at.replace(tzinfo=None)
+    background_tasks.add_task(_cleanup_unlocked_sessions, cutoff_naive)
+    return schemas.CleanupOut(status="accepted", cutoff_at=cutoff_at)
