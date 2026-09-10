@@ -91,8 +91,8 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 1. `rrweb.record` + `@rrweb/packer` 压缩事件，缓冲到内存数组 `events`
 2. 每 **10 秒** 定时 `save()` 上报一包；停止录制时再 `save()` 一次
-3. 同一标签页内 `request_id` 存 `sessionStorage`，多包归并为同一会话
-4. `rrWebStop` 清除 `request_id`，下次 `rrWebStart` 生成新会话
+3. `request_id` / `seq` 放在 **当前页面 JS 模块内存**（与 `order_plan_id`、`rrwebStopFn` 同级），**不写 sessionStorage**；同源多 iframe（浏览器版订单 tab）各有一份模块实例，互不串会话
+4. `rrWebStart` 生成新 `request_id`；`rrWebStop` 清空；同一段录制内多包共用该 `request_id`
 5. 上报队列串行（`reportQueue`）+ 单调 `seq`，回放按 `seq`（空则按 `id`）
 6. 最长录制 **1 小时** 自动停止；后端 BackgroundTasks 异步落库，允许丢片
 
@@ -112,116 +112,9 @@ this.$bus.$on("busRrWebStop", async () => {
 // beforeDestroy 中对应 $off
 ```
 
-#### 录制与上报（`src/utils/rrweb.js`）
+#### 录制与上报（`yaocai_frontend/src/utils/rrweb.js`）
 
-```javascript
-import * as rrweb from "rrweb";
-import { pack } from "@rrweb/packer";
-
-import { api_rrweb_report } from "@/api/rrweb_api.js";
-
-/** 采购订单录屏 */
-const RECORD_TYPE_ORDER_PLAN = 1;
-
-let order_plan_id,
-  events = [],
-  rrwebStopFn = null,
-  timer = null,
-  userInfo = {};
-
-/** 串行上报链：上一包 HTTP 返回后再发下一包；落库为后台任务，顺序靠 seq */
-let reportQueue = Promise.resolve();
-
-function rrWebStart(current_order_plan_id) {
-  if (import.meta.env.VITE_ENABLE_RRWEB === "0") {
-    return;
-  }
-  order_plan_id = current_order_plan_id;
-  if (rrwebStopFn) {
-    rrWebStop();
-  }
-  rrwebStopFn = rrweb.record({
-    packFn: pack,
-    emit(event) {
-      events.push(event);
-    },
-  });
-  timer = setInterval(save, 10 * 1000);
-  setTimeout(rrWebStop, 60 * 60 * 1000);
-}
-
-function rrWebStop() {
-  if (import.meta.env.VITE_ENABLE_RRWEB === "0") {
-    return;
-  }
-  if (rrwebStopFn) {
-    save();
-    rrwebStopFn();
-    rrwebStopFn = null;
-    sessionStorage.removeItem("rrweb_request_id");
-    sessionStorage.removeItem("rrweb_report_seq");
-  }
-  if (timer) {
-    clearInterval(timer);
-    timer = null;
-  }
-}
-
-/** 将当前缓冲事件串行上报；失败不阻断后续包，避免队列卡死。 */
-function save() {
-  if (events.length === 0) {
-    return;
-  }
-  let request_id = sessionStorage.getItem("rrweb_request_id");
-  if (!request_id) {
-    request_id = generateRequestId();
-    sessionStorage.setItem("rrweb_request_id", request_id);
-    sessionStorage.removeItem("rrweb_report_seq");
-  }
-  if (Object.keys(userInfo).length === 0) {
-    let rawInfo = localStorage.getItem("userInfo") || "{}";
-    rawInfo = JSON.parse(rawInfo);
-    userInfo = {
-      company_id: rawInfo.company_id,
-      company_name: rawInfo.company_name,
-      user_id: rawInfo.id,
-      user_name: rawInfo.username,
-    };
-  }
-  const prevSeq = Number(sessionStorage.getItem("rrweb_report_seq") || "0") || 0;
-  const seq = prevSeq + 1;
-  sessionStorage.setItem("rrweb_report_seq", String(seq));
-  const body = {
-    ...userInfo,
-    events,
-    request_id: request_id,
-    seq,
-    record_type: RECORD_TYPE_ORDER_PLAN,
-    payload: {
-      order_plan_id,
-    },
-  };
-  events = [];
-  reportQueue = reportQueue
-    .then(() => api_rrweb_report(body))
-    .catch(err => {
-      console.error("rrweb 上报失败:", err);
-    });
-}
-
-function generateRequestId() {
-  let length = 15,
-    result = "";
-  let characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  for (let i = 0; i < length; i++) {
-    let randomIndex = Math.floor(Math.random() * characters.length);
-    result += characters.charAt(randomIndex);
-  }
-  return result;
-}
-
-export { rrWebStop, rrWebStart };
-```
+以仓库内实现为准：`request_id` / `seq` 为模块内变量（与 `order_plan_id`、`rrwebStopFn` 同级），`rrWebStart` 生成新 `request_id`，`rrWebStop` 清空；不再使用 `sessionStorage` 存会话 ID（仅清理历史遗留键）。
 
 #### HTTP 上报（`src/api/rrweb_api.js`）
 
@@ -494,7 +387,7 @@ curl -sS "{BASE_URL}/ping"
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `request_id` | string | 是 | 本次录制会话 ID（前端 15 位随机串，同标签多包共用） |
+| `request_id` | string | 是 | 本次录制会话 ID（前端 15 位随机串，同一段录制多包共用；存模块内存，不跨 iframe 共享） |
 | `record_type` | int | 是 | 录屏类型，`1` = 采购订单录屏 |
 | `events` | array | 是 | rrweb 事件数组（pack 压缩后的一包） |
 | `seq` | int | 否 | 同一会话内分片序号，前端单调递增；回放优先按此排序 |
