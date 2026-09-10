@@ -3,18 +3,40 @@ rrweb 接口认证：转发 token 至主站 /api/up/auth/verify/，与 YaoCaiUse
 成功结果短时缓存，避免同 token 连续请求重复打主站。
 """
 
-import threading
+import asyncio
 import time
 from typing import Any, Optional
 
-import requests
+import httpx
 from fastapi import Header, HTTPException, status
 
 from config import AUTH_VERIFY_CACHE_TTL, AUTH_VERIFY_TIMEOUT, AUTH_VERIFY_URL
 
 # token -> (expire_at_monotonic, auth_data)
 _verify_cache: dict[str, tuple[float, dict[str, Any]]] = {}
-_verify_cache_lock = threading.Lock()
+_verify_cache_lock = asyncio.Lock()
+
+# 复用连接池的异步客户端，随应用生命周期创建与关闭
+_verify_client: Optional[httpx.AsyncClient] = None
+_verify_client_lock = asyncio.Lock()
+
+
+async def get_verify_client() -> httpx.AsyncClient:
+    """获取（必要时懒创建）主站鉴权请求用的异步客户端。"""
+    global _verify_client
+    if _verify_client is None or _verify_client.is_closed:
+        async with _verify_client_lock:
+            if _verify_client is None or _verify_client.is_closed:
+                _verify_client = httpx.AsyncClient(timeout=AUTH_VERIFY_TIMEOUT)
+    return _verify_client
+
+
+async def close_verify_client() -> None:
+    """关闭鉴权客户端，供应用关闭时释放连接。"""
+    global _verify_client
+    if _verify_client is not None and not _verify_client.is_closed:
+        await _verify_client.aclose()
+    _verify_client = None
 
 
 def _extract_raw_token(
@@ -31,10 +53,10 @@ def _extract_raw_token(
     return raw or None
 
 
-def _get_cached_auth(raw_token: str) -> Optional[dict[str, Any]]:
+async def _get_cached_auth(raw_token: str) -> Optional[dict[str, Any]]:
     """读取未过期的 verify 缓存；过期则删除并返回 None。"""
     now = time.monotonic()
-    with _verify_cache_lock:
+    async with _verify_cache_lock:
         item = _verify_cache.get(raw_token)
         if item is None:
             return None
@@ -45,12 +67,12 @@ def _get_cached_auth(raw_token: str) -> Optional[dict[str, Any]]:
         return data
 
 
-def _set_cached_auth(raw_token: str, data: dict[str, Any]) -> None:
+async def _set_cached_auth(raw_token: str, data: dict[str, Any]) -> None:
     """写入 verify 成功结果缓存。"""
     if AUTH_VERIFY_CACHE_TTL <= 0:
         return
     expire_at = time.monotonic() + AUTH_VERIFY_CACHE_TTL
-    with _verify_cache_lock:
+    async with _verify_cache_lock:
         _verify_cache[raw_token] = (expire_at, data)
         # 简单限长，防止异常流量撑爆内存
         if len(_verify_cache) > 4096:
@@ -58,7 +80,7 @@ def _set_cached_auth(raw_token: str, data: dict[str, Any]) -> None:
             _verify_cache.pop(oldest_key, None)
 
 
-def require_auth(
+async def require_auth(
     token: Optional[str] = Header(None, alias="token"),
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> dict:
@@ -80,20 +102,20 @@ def require_auth(
             detail="未登录或缺少 token",
         )
 
-    cached = _get_cached_auth(raw_token)
+    cached = await _get_cached_auth(raw_token)
     if cached is not None:
         return cached
 
+    client = await get_verify_client()
     try:
-        resp = requests.get(
+        resp = await client.get(
             AUTH_VERIFY_URL,
             headers={
                 "token": raw_token,
                 "Authorization": f"JWT {raw_token}",
             },
-            timeout=AUTH_VERIFY_TIMEOUT,
         )
-    except requests.RequestException as exc:
+    except httpx.HTTPError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="无法连接鉴权服务",
@@ -125,5 +147,5 @@ def require_auth(
         )
 
     auth_data = body["data"]
-    _set_cached_auth(raw_token, auth_data)
+    await _set_cached_auth(raw_token, auth_data)
     return auth_data

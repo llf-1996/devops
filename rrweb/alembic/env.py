@@ -30,13 +30,13 @@ if config.config_file_name is not None:
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
 # target_metadata = None
-from config import DATABASE_URL
+from config import DATABASE_URL_SYNC
 from app.models import Base
 
 target_metadata = Base.metadata
 
-# 数据库连接统一取自 config.py
-config.set_main_option("sqlalchemy.url", DATABASE_URL)
+# 数据库连接统一取自 config.py；迁移使用同步驱动，服务运行时才用异步驱动
+config.set_main_option("sqlalchemy.url", DATABASE_URL_SYNC)
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

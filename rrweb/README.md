@@ -7,6 +7,8 @@
 - Python 3.11+
 - MySQL 外部数据库
 
+服务为**全协程**实现：路由、鉴权、数据库访问均为 `async/await`。数据库走 SQLAlchemy 异步引擎 + `asyncmy`，主站鉴权走 `httpx.AsyncClient`；`pymysql` 仅供 Alembic 迁移使用。
+
 ## 2. 安装依赖（推荐使用国内 PyPI 镜像加速）
 
 ```bash
@@ -16,6 +18,13 @@ pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
 ## 3. 配置
 
 编辑 [`config.py`](config.py)（数据库连接、主站 token 校验地址 `AUTH_VERIFY_URL` 等）。
+
+数据库连接串由同一份 `_DATABASE_DSN` 派生出两个变量，改库只需改 DSN 一处：
+
+| 配置项 | 驱动 | 用途 |
+|--------|------|------|
+| `DATABASE_URL` | `mysql+asyncmy` | 服务运行时异步会话（[`app/database.py`](app/database.py)） |
+| `DATABASE_URL_SYNC` | `mysql+pymysql` | Alembic 迁移（[`alembic/env.py`](alembic/env.py)） |
 
 镜像默认时区为北京时间，见 [`Dockerfile`](Dockerfile) 中 `ENV TZ=Asia/Shanghai`。
 
